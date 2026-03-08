@@ -1,9 +1,9 @@
 const admin = require('firebase-admin');
-const serviceAccount = require('./config/firebaseKey.json');
+const serviceAccount = require('./config/firebaseKey');
 
 admin.initializeApp({
   credential: admin.credential.cert(serviceAccount),
-  databaseURL: "https://batalha-naval-30c5f-default-rtdb.firebaseio.com"
+  databaseURL: "https://batalha-naval-esp32-default-rtdb.firebaseio.com/"
 });
 
 const db = admin.database();
@@ -48,7 +48,7 @@ app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(specs));
  *             properties:
  *               jogador_id:
  *                 type: integer
- *               round:
+ *               rodada:
  *                 type: integer
  *               tentativa:
  *                 type: integer
@@ -63,7 +63,7 @@ app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(specs));
  *                       type: integer
  *             required:
  *               - jogador_id
- *               - round
+ *               - rodada
  *               - tentativa
  *               - coordenadas
  *     responses:
@@ -72,18 +72,21 @@ app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(specs));
  */
 app.post('/jogada', async (req, res) => {
   try {
-    const { jogador_id, round, tentativa, coordenadas } = req.body;
+    console.log("Jogada recebida:");
+    console.log(req.body);
+
+    const { jogador_id, rodada, tentativa, coordenadas } = req.body;
 
     if (
       jogador_id === undefined ||
-      round === undefined ||
+      rodada === undefined ||
       tentativa === undefined ||
       !Array.isArray(coordenadas)
     ) {
       return res.status(400).json({ erro: 'Campos obrigatórios inválidos' });
     }
 
-    const jogada = { jogador_id, round, tentativa, coordenadas };
+    const jogada = { jogador_id, rodada, tentativa, coordenadas };
 
     const ref = db.ref('jogadas');
     const novaJogada = ref.push();
@@ -102,18 +105,41 @@ app.post('/jogada', async (req, res) => {
 
 /**
  * @swagger
- * /jogada:
+ * /retorna-jogadas:
  *   get:
  *     summary: Retorna todas as jogadas registradas
  *     responses:
  *       200:
  *         description: Lista de jogadas
  */
-app.get('/jogada', async (req, res) => {
-  const snapshot = await db.ref('jogadas').once('value');
-  const dados = snapshot.val();
+app.get('/retorna-jogadas', async (req, res) => {
+  try {
 
-  res.json(dados || {});
+    const snapshot = await db.ref('jogadas').once('value');
+    const dados = snapshot.val();
+
+    const lista = [];
+
+    for (const id in dados) {
+      lista.push({
+        id: id,
+        ...dados[id]
+      });
+    }
+
+    console.log("Jogadas retornadas:", lista);
+
+    res.status(200).json(lista);
+
+  } catch (error) {
+
+    console.error("Erro ao buscar jogadas:", error);
+
+    res.status(500).json({
+      erro: "Erro ao buscar jogadas"
+    });
+
+  }
 });
 
 const PORT = process.env.PORT || 3000;
